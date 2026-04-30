@@ -26,12 +26,8 @@ export function getDashboardPath(roles) {
 
 // Helpers to persist the mustChangePassword flag alongside the token
 const MCP_KEY = "mustChangePassword";
-const storeMustChangePassword = (value, rememberMe) => {
-  if (rememberMe) {
-    localStorage.setItem(MCP_KEY, value ? "1" : "0");
-  } else {
-    sessionStorage.setItem(MCP_KEY, value ? "1" : "0");
-  }
+const storeMustChangePassword = (value) => {
+  sessionStorage.setItem(MCP_KEY, value ? "1" : "0");
 };
 const getStoredMustChangePassword = () => {
   const v = sessionStorage.getItem(MCP_KEY) ?? localStorage.getItem(MCP_KEY);
@@ -85,19 +81,15 @@ export function AuthProvider({ children }) {
     restoreSession();
   }, []);
 
-  const login = useCallback(async (email, password, rememberMe = false) => {
-    const response = await authService.login(email, password, rememberMe);
+  const login = useCallback(async (email, password, rememberMe = false, captchaToken) => {
+    const response = await authService.login(email, password, rememberMe, captchaToken);
     const data = response.data;
 
-    // Store token based on Remember Me preference
-    if (rememberMe) {
-      localStorage.setItem("accessToken", data.token);
-    } else {
-      sessionStorage.setItem("accessToken", data.token);
-    }
+    // Always use sessionStorage — localStorage is XSS-accessible
+    sessionStorage.setItem("accessToken", data.token);
 
     const needsPasswordChange = !!data.isPasswordChangeRequired;
-    storeMustChangePassword(needsPasswordChange, rememberMe);
+    storeMustChangePassword(needsPasswordChange);
     setMustChangePassword(needsPasswordChange);
 
     const userData = {
@@ -116,7 +108,7 @@ export function AuthProvider({ children }) {
     const response = await authService.googleLogin(credential);
     const data = response.data;
 
-    localStorage.setItem("accessToken", data.token);
+    sessionStorage.setItem("accessToken", data.token);
     clearStoredMustChangePassword();
     setMustChangePassword(false);
 
@@ -136,7 +128,7 @@ export function AuthProvider({ children }) {
     const response = await authService.googleLoginWithToken(accessToken);
     const data = response.data;
 
-    localStorage.setItem("accessToken", data.token);
+    sessionStorage.setItem("accessToken", data.token);
     clearStoredMustChangePassword();
     setMustChangePassword(false);
 

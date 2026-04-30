@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { useNavigate } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -733,19 +734,8 @@ export default function SettingPage() {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    {/* Password strength bar */}
-                                                    {formData.newPassword && (
-                                                        <div className="space-y-1.5">
-                                                            <div className="flex gap-1.5">
-                                                                {[1, 2, 3, 4, 5].map(i => (
-                                                                    <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= passwordStrength.score ? passwordStrength.color : "bg-gray-200"}`} />
-                                                                ))}
-                                                            </div>
-                                                            <p className={`text-[11px] font-medium ${passwordStrength.color.replace("bg-", "text-")}`}>
-                                                                {passwordStrength.label}
-                                                            </p>
-                                                        </div>
-                                                    )}
+                                                    {/* Password strength */}
+                                                    <PasswordStrengthIndicator password={formData.newPassword} />
                                                 </div>
                                                 <div className="pt-2">
                                                     <Button

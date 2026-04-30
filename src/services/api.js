@@ -44,18 +44,19 @@ apiClient.interceptors.response.use(
       // Skip redirect for login endpoints (let the component show the error)
       const isLoginRequest = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/google-login');
       if (status === 401 && !isLoginRequest) {
-        // Clear token and redirect to login
         localStorage.removeItem('accessToken');
         sessionStorage.removeItem('accessToken');
         window.location.href = '/login';
       } else if (status === 403) {
         toast.error("You don't have permission to perform this action.");
+      } else if (status === 429) {
+        toast.error("Too many requests. Please wait a few minutes and try again.");
       }
 
-      // Return structured error
       return Promise.reject({
-        message: data.message || 'An error occurred',
-        errors: data.errors || [],
+        message: data?.message || 'An error occurred',
+        errors: data?.errors || [],
+        data: data?.data ?? null,
         status,
       });
     }

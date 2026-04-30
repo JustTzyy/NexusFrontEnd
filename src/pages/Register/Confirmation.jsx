@@ -20,6 +20,7 @@ export default function Confirmation() {
     const [isVerified, setIsVerified] = useState(false);
     const [otp, setOtp] = useState("");
     const [error, setError] = useState("");
+    const [lockoutSeconds, setLockoutSeconds] = useState(0);
     const [resendCooldown, setResendCooldown] = useState(0);
     const [isSending, setIsSending] = useState(false);
     const otpSentRef = useRef(false);
@@ -50,6 +51,18 @@ export default function Confirmation() {
         return () => clearTimeout(timer);
     }, [resendCooldown]);
 
+    // Lockout countdown
+    useEffect(() => {
+        if (lockoutSeconds <= 0) return;
+        const timer = setInterval(() => {
+            setLockoutSeconds((s) => {
+                if (s <= 1) { setError(""); return 0; }
+                return s - 1;
+            });
+        }, 1000);
+        return () => clearInterval(timer);
+    }, [lockoutSeconds]);
+
     const sendOtp = async () => {
         setIsSending(true);
         setError("");
@@ -70,8 +83,13 @@ export default function Confirmation() {
             await authService.verifyOtp(email, otp);
             setIsVerified(true);
         } catch (err) {
-            const msg = err.response?.data?.message || "Invalid or expired verification code";
-            setError(msg);
+            if (err.status === 423) {
+                const mins = err.data?.remainingMinutes ?? 15;
+                setLockoutSeconds(mins * 60);
+                setError(`Too many failed attempts. Please wait ${mins} minute${mins !== 1 ? "s" : ""} before trying again.`);
+            } else {
+                setError(err.message || "Invalid or expired verification code");
+            }
         } finally {
             setIsVerifying(false);
         }
@@ -151,11 +169,19 @@ export default function Confirmation() {
 
                                 <CardContent className="px-8 pb-6 space-y-6">
                                     <div className="space-y-4">
-                                        {error && (
+                                        {lockoutSeconds > 0 ? (
+                                            <div className="bg-amber-50 border border-amber-300 p-3 rounded-lg">
+                                                <p className="text-sm font-semibold text-amber-800">Verification locked</p>
+                                                <p className="text-sm text-amber-700 mt-0.5">{error}</p>
+                                                <p className="text-xs text-amber-600 mt-1">
+                                                    Unlocks in {Math.floor(lockoutSeconds / 60)}:{String(lockoutSeconds % 60).padStart(2, "0")}
+                                                </p>
+                                            </div>
+                                        ) : error ? (
                                             <div className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded-lg">
                                                 {error}
                                             </div>
-                                        )}
+                                        ) : null}
 
                                         <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex gap-3 items-start">
                                             <div className="bg-blue-500 rounded-full p-1 mt-0.5">
@@ -189,7 +215,7 @@ export default function Confirmation() {
 
                                     <Button
                                         onClick={handleVerify}
-                                        disabled={isVerifying || otp.length !== 6}
+                                        disabled={isVerifying || otp.length !== 6 || lockoutSeconds > 0}
                                         className="w-full h-12 text-base font-semibold shadow-lg hover:shadow-xl transition-all"
                                     >
                                         {isVerifying ? (

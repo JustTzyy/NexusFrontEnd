@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import LandingLayout from "../../layouts/LandingLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { authService } from "@/services/authService";
 
 export default function EmailVerification() {
     const navigate = useNavigate();
+    const { executeRecaptcha } = useGoogleReCaptcha();
     const [email, setEmail] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -22,7 +24,8 @@ export default function EmailVerification() {
         setLoading(true);
 
         try {
-            await authService.forgotPassword(email);
+            const captchaToken = await executeRecaptcha("forgot_password");
+            await authService.forgotPassword(email, captchaToken);
             setSuccess(true);
         } catch (err) {
             setError(err.response?.data?.message || "An error occurred. Please try again.");

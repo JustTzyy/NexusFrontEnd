@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { authService } from "../../services/authService";
+import PasswordStrengthIndicator from "@/components/PasswordStrengthIndicator";
 import { useAuth } from "../../contexts/AuthContext";
 import LandingLayout from "../../layouts/LandingLayout";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ export default function CreatePassword() {
     const navigate = useNavigate();
     const location = useLocation();
     const { initUserFromData } = useAuth();
+    const { executeRecaptcha } = useGoogleReCaptcha();
 
     const email = location.state?.email || "";
 
@@ -41,7 +44,8 @@ export default function CreatePassword() {
 
         setIsSubmitting(true);
         try {
-            const res = await authService.register(email, password, confirmPassword);
+            const captchaToken = await executeRecaptcha("register");
+            const res = await authService.register(email, password, confirmPassword, captchaToken);
             const data = res.data?.data || res.data;
 
             // Store token and hydrate auth state so ProtectedRoute sees the user as authenticated
@@ -50,7 +54,11 @@ export default function CreatePassword() {
 
             navigate("/register/welcome", { replace: true });
         } catch (err) {
-            const msg = err.response?.data?.message || err.response?.data?.errors?.join(", ") || err.message;
+            const msg = err.message?.toLowerCase().includes("captcha")
+                ? "Verification failed. Please wait a moment and try again."
+                : err.status === 429
+                ? "Too many requests. Please wait a few minutes and try again."
+                : err.message || "Registration failed. Please try again.";
             setError(msg);
         } finally {
             setIsSubmitting(false);
@@ -157,6 +165,7 @@ export default function CreatePassword() {
                                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                                 </button>
                                             </div>
+                                            <PasswordStrengthIndicator password={password} showRules />
                                         </div>
 
                                         <div className="space-y-2">
