@@ -6,9 +6,8 @@
 
 export const msalConfig = {
     auth: {
-        clientId: "51169adc-9edc-4f6e-9534-29019ca7ed6e",
-        // Changing to 'common' allows both personal and organizational Microsoft accounts
-        authority: "https://login.microsoftonline.com/common",
+        clientId: import.meta.env.VITE_AZURE_CLIENT_ID,
+        authority: import.meta.env.VITE_AZURE_AUTHORITY ?? "https://login.microsoftonline.com/common",
         redirectUri: window.location.origin,
     },
     cache: {

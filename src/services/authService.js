@@ -1,8 +1,8 @@
 import apiClient from './api';
 
 export const authService = {
-  register: (email, password, confirmPassword) => apiClient.post('/auth/register', { email, password, confirmPassword }),
-  login: (email, password, rememberMe = false) => apiClient.post('/auth/login', { email, password, rememberMe }),
+  register: (email, password, confirmPassword, captchaToken) => apiClient.post('/auth/register', { email, password, confirmPassword, captchaToken }),
+  login: (email, password, rememberMe = false, captchaToken) => apiClient.post('/auth/login', { email, password, rememberMe, captchaToken }),
   googleLogin: (credential) => apiClient.post('/auth/google-login', { credential }),
   googleLoginWithToken: (accessToken) => apiClient.post('/auth/google-login', { accessToken }),
   getMe: () => apiClient.get('/auth/me'),
@@ -19,7 +19,7 @@ export const authService = {
   verifyOtp: (email, code) => apiClient.post('/auth/verify-otp', { email, code }),
 
   // Password reset
-  forgotPassword: (email) => apiClient.post('/auth/forgot-password', { email }),
+  forgotPassword: (email, captchaToken) => apiClient.post('/auth/forgot-password', { email, captchaToken }),
   resetPassword: (token, newPassword) => apiClient.post('/auth/reset-password', { token, newPassword }),
   validateResetToken: (token) => apiClient.get(`/auth/validate-reset-token/${token}`),
 };

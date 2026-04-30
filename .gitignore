@@ -1,3 +1,8 @@
+# Environment variables (sensitive credentials - never commit)
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log

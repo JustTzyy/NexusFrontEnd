@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
 import { useGoogleLogin } from "@react-oauth/google";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { useAuth, getDashboardPath } from "@/contexts/AuthContext";
 import LandingLayout from "../../layouts/LandingLayout";
 import { Button } from "@/components/ui/button";
@@ -15,21 +16,35 @@ import LandingImg from "../../assets/LandingPage_Home.png";
 export default function LoginIndex() {
   const navigate = useNavigate();
   const { login, googleLoginWithToken, isAuthenticated, user } = useAuth();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const savedCredentials = JSON.parse(localStorage.getItem("rememberedCredentials") || "null");
   const [email, setEmail] = useState(savedCredentials?.email || "");
-  const [password, setPassword] = useState(savedCredentials?.password || "");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(!!savedCredentials);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
 
-  // Auto-dismiss error after 5 seconds
+  // Auto-dismiss non-lockout errors after 5 seconds
   useEffect(() => {
-    if (!error) return;
+    if (!error || lockoutSeconds > 0) return;
     const timer = setTimeout(() => setError(""), 5000);
     return () => clearTimeout(timer);
-  }, [error]);
+  }, [error, lockoutSeconds]);
+
+  // Lockout countdown
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutSeconds((s) => {
+        if (s <= 1) { setError(""); return 0; }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutSeconds]);
 
   // If already logged in, redirect to dashboard
   if (isAuthenticated && user) {
@@ -42,18 +57,29 @@ export default function LoginIndex() {
     setLoading(true);
 
     try {
-      const userData = await login(email, password, rememberMe);
+      const captchaToken = await executeRecaptcha("login");
+      const userData = await login(email, password, rememberMe, captchaToken);
 
       // Save or clear remembered credentials
       if (rememberMe) {
-        localStorage.setItem("rememberedCredentials", JSON.stringify({ email, password }));
+        localStorage.setItem("rememberedCredentials", JSON.stringify({ email }));
       } else {
         localStorage.removeItem("rememberedCredentials");
       }
 
       navigate(getDashboardPath(userData.roles), { replace: true });
     } catch (err) {
-      setError(err.message || "Invalid email or password");
+      if (err.status === 423) {
+        const mins = err.data?.remainingMinutes ?? 15;
+        setLockoutSeconds(mins * 60);
+        setError(`Too many failed attempts. Please wait ${mins} minute${mins !== 1 ? "s" : ""} before trying again.`);
+      } else if (err.status === 429) {
+        setError("Too many requests. Please wait a few minutes and try again.");
+      } else if (err.message?.toLowerCase().includes("captcha")) {
+        setError("Verification failed. Please wait a moment and try again.");
+      } else {
+        setError("Invalid email or password.");
+      }
     } finally {
       setLoading(false);
     }
@@ -130,10 +156,20 @@ export default function LoginIndex() {
             </CardHeader>
 
             <CardContent className="px-8 pb-6">
-              {/* Error message - always takes space to prevent layout shift */}
-              <div className={`mb-4 p-3 rounded-lg bg-red-50 border border-red-200 transition-opacity duration-300 ${error ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
-                <p className="text-sm text-red-600">{error || "\u00A0"}</p>
-              </div>
+              {/* Error / lockout message */}
+              {lockoutSeconds > 0 ? (
+                <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-300">
+                  <p className="text-sm font-semibold text-amber-800">Account temporarily locked</p>
+                  <p className="text-sm text-amber-700 mt-0.5">{error}</p>
+                  <p className="text-xs text-amber-600 mt-1">
+                    Unlocks in {Math.floor(lockoutSeconds / 60)}:{String(lockoutSeconds % 60).padStart(2, "0")}
+                  </p>
+                </div>
+              ) : (
+                <div className={`mb-4 p-3 rounded-lg bg-red-50 border border-red-200 transition-opacity duration-300 ${error ? "opacity-100" : "opacity-0 pointer-events-none"}`}>
+                  <p className="text-sm text-red-600">{error || " "}</p>
+                </div>
+              )}
 
               <form onSubmit={onSubmit} className="space-y-5">
                 <FloatingInput
@@ -191,7 +227,7 @@ export default function LoginIndex() {
                   </label>
                 </div>
 
-                <Button type="submit" className="w-full group h-12 text-base font-semibold shadow-md hover:shadow-lg transition-all" disabled={loading}>
+                <Button type="submit" className="w-full group h-12 text-base font-semibold shadow-md hover:shadow-lg transition-all" disabled={loading || lockoutSeconds > 0}>
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -20,7 +20,6 @@ export default function ForgotPassword() {
     const [validating, setValidating] = useState(true);
     const [error, setError] = useState("");
     const [tokenValid, setTokenValid] = useState(false);
-    const [userEmail, setUserEmail] = useState("");
     const [success, setSuccess] = useState(false);
 
     // Validate token on mount
@@ -30,7 +29,6 @@ export default function ForgotPassword() {
                 const response = await authService.validateResetToken(token);
                 if (response.data?.isValid) {
                     setTokenValid(true);
-                    setUserEmail(response.data.email || "");
                 } else {
                     setTokenValid(false);
                 }
@@ -173,7 +171,7 @@ export default function ForgotPassword() {
                             </Avatar>
                         </div>
                         <CardDescription>
-                            Enter your new password for <strong>{userEmail}</strong>
+                            Enter your new password below.
                         </CardDescription>
                     </CardHeader>
 
